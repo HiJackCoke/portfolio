@@ -29,6 +29,7 @@ interface CardMeshRef {
   mesh: THREE.Mesh;
   originPosition: THREE.Vector3Tuple;
   originRotation: THREE.Euler;
+  animation: boolean;
 }
 
 type ScrollControlsState = ReturnType<typeof useScroll> & {
@@ -59,16 +60,14 @@ const Carousel = <T extends CardType>({
 
   const meshesRef = useRef<(THREE.Mesh | null)[]>([]);
   const selectedMeshRef = useRef<CardMeshRef | null>(null);
-  const selectedUUIDRef = useRef<
-    THREE.Object3D<THREE.Object3DEventMap>["uuid"] | null
-  >(null);
 
   const scrollRef = useRef(0);
 
   const [selectedID, setSelectedID] = useState(selectedId);
 
   const handleClose = (card: T) => () => {
-    selectedUUIDRef.current = null;
+    if (!selectedMeshRef.current) return;
+    selectedMeshRef.current.animation = false;
     onCardClose?.(card);
   };
 
@@ -77,12 +76,10 @@ const Carousel = <T extends CardType>({
     (_: unknown, mesh: THREE.Mesh | null) => {
       if (!mesh) return;
 
-      if (selectedUUIDRef.current === mesh.uuid) return;
-
       selectMesh(mesh, card.id, position, originRotation);
 
       const index = meshesRef.current.findIndex(
-        (mesh) => mesh?.uuid === selectedUUIDRef.current
+        (meshRef) => meshRef?.uuid === mesh.uuid
       );
 
       scroll.el.style.pointerEvents = "none";
@@ -143,6 +140,8 @@ const Carousel = <T extends CardType>({
     ) => {
       if (!card?.mesh.parent) return;
 
+      if (!selectedMeshRef.current) return;
+
       const isCenter =
         Math.abs((scroll.offset % 1) - (scrollRef.current % 1)) < EPSILON;
 
@@ -156,7 +155,7 @@ const Carousel = <T extends CardType>({
       }
 
       const { position, scale } = getResponseMesh(state);
-      const isOff = selectedUUIDRef.current === null;
+      const isOff = !selectedMeshRef.current?.animation;
 
       if (isOff) {
         const originPosition = new THREE.Vector3(...card.originPosition);
@@ -201,7 +200,8 @@ const Carousel = <T extends CardType>({
         easing.damp3(card.mesh.position, position, 0, delta);
         easing.dampE(card.mesh.rotation, [0, 0, 0], 0, delta);
         easing.damp3(card.mesh.scale, scale, 0, delta);
-        selectedUUIDRef.current = null;
+
+        selectedMeshRef.current.animation = false;
       }
     };
 
@@ -244,12 +244,13 @@ const Carousel = <T extends CardType>({
     originPosition: THREE.Vector3Tuple,
     originRotation: THREE.Euler
   ) => {
-    selectedUUIDRef.current = mesh.uuid;
+    // selectedUUIDRef.current = mesh.uuid;
     selectedMeshRef.current = {
       id: cardID,
       mesh,
       originPosition,
       originRotation,
+      animation: true,
     };
   };
 
@@ -300,12 +301,14 @@ const Carousel = <T extends CardType>({
 
   useEffect(() => {
     const isFinishedReversAnimation =
-      !selectedUUIDRef.current && !selectedId && !selectedMeshRef.current;
+      !selectedMeshRef.current?.animation &&
+      !selectedId &&
+      !selectedMeshRef.current;
 
     if (isFinishedReversAnimation) {
       setSelectedID(undefined);
     }
-  }, [selectedUUIDRef.current, selectedMeshRef.current]);
+  }, [selectedMeshRef.current?.animation, selectedMeshRef.current]);
 
   return cards.map((card, index) => {
     const { id, imageUrl } = card;
@@ -316,7 +319,8 @@ const Carousel = <T extends CardType>({
     const isDefaultSelectedCard = selectedID === card.id;
 
     const isSelected =
-      selectedUUIDRef.current === meshesRef.current[index]?.uuid;
+      selectedMeshRef.current?.animation &&
+      selectedMeshRef.current.mesh.uuid === meshesRef.current[index]?.uuid;
 
     return (
       <Card
