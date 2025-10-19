@@ -58,12 +58,11 @@ const Carousel = <T extends CardType>({
   const navigate = useNavigate();
   const scroll = useScroll() as ScrollControlsState;
 
+  const scrollRef = useRef(0);
   const meshesRef = useRef<(THREE.Mesh | null)[]>([]);
   const selectedMeshRef = useRef<CardMeshRef | null>(null);
 
-  const scrollRef = useRef(0);
-
-  const [selectedID, setSelectedID] = useState(selectedId);
+  const [defaultSelectedID, setDefaultSelectedID] = useState(selectedId);
 
   const handleClose = (card: T) => () => {
     if (!selectedMeshRef.current) return;
@@ -208,8 +207,6 @@ const Carousel = <T extends CardType>({
     return animate;
   };
 
-  // 사용 예시
-
   const animateToCenter = (
     index: number,
     behavior: ScrollBehavior = "smooth"
@@ -306,7 +303,7 @@ const Carousel = <T extends CardType>({
       !selectedMeshRef.current;
 
     if (isFinishedReversAnimation) {
-      setSelectedID(undefined);
+      setDefaultSelectedID(undefined);
     }
   }, [selectedMeshRef.current?.animation, selectedMeshRef.current]);
 
@@ -316,7 +313,7 @@ const Carousel = <T extends CardType>({
     const rotation = getCardRotation(index);
     const position = getCardPosition(index);
 
-    const isDefaultSelectedCard = selectedID === card.id;
+    const isDefaultSelectedCard = defaultSelectedID === card.id;
 
     const isSelected =
       selectedMeshRef.current?.animation &&
