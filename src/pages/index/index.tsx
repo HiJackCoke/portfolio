@@ -6,46 +6,14 @@ import Banner from "../../3D/components/Banner";
 
 import cards from "../../constants/cards";
 
-import {
-  MutableRefObject,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useLayoutEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 const Index = () => {
-  const portal = useRef(
-    document.getElementById("html")
-  ) as MutableRefObject<HTMLDivElement>;
-
   const location = useLocation();
   const selectedId = new URLSearchParams(location.search).get("id");
 
   const [isSelected, setIsSelected] = useState(false);
-
-  useEffect(() => {
-    if (!portal.current) return;
-
-    const handleWheelCapture: EventListener = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    const handleTouchMoveCapture: EventListener = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    portal.current.addEventListener("wheel", handleWheelCapture);
-    portal.current.addEventListener("touch", handleTouchMoveCapture);
-
-    return () => {
-      portal.current.removeEventListener("wheel", handleWheelCapture);
-      portal.current.removeEventListener("touch", handleTouchMoveCapture);
-    };
-  }, [portal]);
 
   useLayoutEffect(() => {
     if (selectedId) {
