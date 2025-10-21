@@ -58,8 +58,8 @@ const Carousel = <T extends CardType>({
   const navigate = useNavigate();
   const scroll = useScroll() as ScrollControlsState;
 
-  const scrollRef = useRef(0);
   const meshesRef = useRef<(THREE.Mesh | null)[]>([]);
+  const scrollRef = useRef(0);
   const selectedMeshRef = useRef<CardMeshRef | null>(null);
 
   const [defaultSelectedID, setDefaultSelectedID] = useState(selectedId);
