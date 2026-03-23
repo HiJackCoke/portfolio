@@ -43,7 +43,7 @@ const Rig = ({
 
   const fogPosition = useMemo(
     () => [aspectRatio, aspectRatio + 3] as [number, number],
-    [viewport.width, viewport.height]
+    [viewport.width, viewport.height],
   );
 
   useFrame((state, delta) => {
@@ -66,21 +66,21 @@ const Rig = ({
         "near",
         fogPosition[0],
         animation ? 0.3 : 0,
-        delta
+        delta,
       );
       easing.damp(
         state.scene.fog,
         "far",
         fogPosition[1],
         animation ? 0.3 : 0,
-        delta
+        delta,
       );
     }
     easing.damp3(
       state.camera.position,
       cameraPosition,
       animation ? 0.3 : 0,
-      delta
+      delta,
     );
 
     easing.dampE(
@@ -91,13 +91,14 @@ const Rig = ({
         rotation[2],
       ],
       animation ? 0.1 : 0,
-      delta
+      delta,
     );
 
     state.camera.lookAt(0, 0, 0);
 
     if (scrollRef.current !== scroll.offset && onScrollChange) {
       scrollRef.current = scroll.offset;
+
       onScrollChange(scroll);
     }
   });

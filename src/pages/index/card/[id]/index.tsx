@@ -19,8 +19,8 @@ const Index = () => {
   const ref = useRef<THREE.Mesh | null>(null);
 
   const params = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { viewport } = useThree();
+  const navigate = useNavigate();
 
   const isVertical = useMemo(() => {
     if (viewport.aspect < 1) {
@@ -40,6 +40,8 @@ const Index = () => {
 
   const card = cards.find((card) => card.id === Number(params.id));
   useEffect(() => {
+    document.body.style.pointerEvents = "";
+
     if (!card) {
       navigate("/", {
         flushSync: true,
@@ -54,7 +56,7 @@ const Index = () => {
 
     const root = createRoot(html);
     root.render(
-      <CardDetailContent data={card?.data} isVertical={isVertical} />
+      <CardDetailContent data={card?.data} isVertical={isVertical} />,
     );
 
     return () => {
@@ -66,7 +68,7 @@ const Index = () => {
 
   return (
     <>
-      <ScrollControls enabled={false} prepend={true}>
+      <ScrollControls enabled={false} prepend={false}>
         <Rig rotation={[0, 0, 0]}>
           <Card
             ref={ref}
@@ -77,6 +79,7 @@ const Index = () => {
             position={[0, 0, 0]}
             rotation={[0, 0, 0]}
             onClose={() => {
+              document.body.style.pointerEvents = "none";
               navigate(`/?id=${card.id}`);
             }}
           />

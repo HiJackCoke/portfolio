@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RenderCallback, useFrame } from "@react-three/fiber";
 import { easing } from "maath";
 
@@ -41,6 +41,35 @@ const SELECTED_MESH_SCALE = SCALE + 0.8;
 
 const EPSILON = 0.001;
 
+// Y height of the carousel ring — move up from 0 to sit closer to screen centre
+const Y_OFFSET = 0;
+
+// Glow halo colours matching the Background particle palette
+const GLOW_PALETTE = [
+  "#818cf8",
+  "#a78bfa",
+  "#38bdf8",
+  "#c4b5fd",
+  "#e0f2fe",
+  "#f0abfc",
+];
+
+// Intro animation timing (seconds)
+const START_Y = 2.5;
+const DROP_DURATION = 0.9;
+const IMPACT_DURATION = 0.3;
+const SPREAD_DURATION = 1.4;
+const TOTAL_INTRO = DROP_DURATION + IMPACT_DURATION + SPREAD_DURATION;
+
+const easeInQuad = (t: number) => t * t;
+const easeOutBack = (t: number) => {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+};
+
+const CARD_INTRO_SCALE = 0.15;
+
 const Carousel = <T extends CardType>({
   selectedId,
   cards,
@@ -59,8 +88,45 @@ const Carousel = <T extends CardType>({
   const scroll = useScroll() as ScrollControlsState;
 
   const meshesRef = useRef<(THREE.Mesh | null)[]>([]);
+  const glowMeshesRef = useRef<(THREE.Mesh | null)[]>([]);
   const scrollRef = useRef(0);
   const selectedMeshRef = useRef<CardMeshRef | null>(null);
+  const introRef = useRef({
+    time: selectedId ? TOTAL_INTRO : 0,
+    done: !!selectedId,
+  });
+
+  const clusterOffsets = useMemo(
+    () =>
+      cards.map(() => ({
+        x: (Math.random() - 0.5) * 0.1,
+        y: (Math.random() - 0.5) * 0.12,
+        z: (Math.random() - 0.5) * 0.05,
+      })),
+    [count],
+  );
+
+  const glowTexture = useMemo(() => {
+    const size = 128;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    const grd = ctx.createRadialGradient(
+      size / 2,
+      size / 2,
+      0,
+      size / 2,
+      size / 2,
+      size / 2,
+    );
+    grd.addColorStop(0, "rgba(255,255,255,0.85)");
+    grd.addColorStop(0.45, "rgba(255,255,255,0.2)");
+    grd.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, size, size);
+    return new THREE.CanvasTexture(canvas);
+  }, []);
 
   const [defaultSelectedID, setDefaultSelectedID] = useState(selectedId);
 
@@ -78,7 +144,7 @@ const Carousel = <T extends CardType>({
       selectMesh(mesh, card.id, position, originRotation);
 
       const index = meshesRef.current.findIndex(
-        (meshRef) => meshRef?.uuid === mesh.uuid
+        (meshRef) => meshRef?.uuid === mesh.uuid,
       );
 
       scroll.el.style.pointerEvents = "none";
@@ -91,7 +157,7 @@ const Carousel = <T extends CardType>({
     card: CardMeshRef,
     zoom: boolean,
     smoothTime: number,
-    delta: number
+    delta: number,
   ) => {
     meshesRef.current.forEach((mesh) => {
       if (!mesh) return;
@@ -101,7 +167,7 @@ const Carousel = <T extends CardType>({
           mesh.scale,
           zoom ? SELECTED_MESH_SCALE : 1,
           smoothTime,
-          delta
+          delta,
         );
       } else {
         easing.damp3(mesh.scale, zoom ? 0 : 1, smoothTime, delta);
@@ -118,13 +184,12 @@ const Carousel = <T extends CardType>({
       new THREE.Vector3(
         SELECTED_MESH_SCALE,
         SELECTED_MESH_SCALE,
-        SELECTED_MESH_SCALE
-      )
+        SELECTED_MESH_SCALE,
+      ),
     );
 
     if (isCompleted) {
-      scroll.el.style.pointerEvents = "";
-
+      document.body.style.pointerEvents = "none";
       navigate(`/card/${selectedMeshRef.current.id}`);
     }
   };
@@ -135,7 +200,7 @@ const Carousel = <T extends CardType>({
     const animate = (
       card: CardMeshRef,
       reverse: boolean,
-      [state, delta]: Parameters<RenderCallback>
+      [state, delta]: Parameters<RenderCallback>,
     ) => {
       if (!card?.mesh.parent) return;
 
@@ -171,8 +236,8 @@ const Carousel = <T extends CardType>({
           new THREE.Euler(
             card.mesh.rotation.x,
             card.mesh.rotation.y,
-            card.mesh.rotation.z
-          )
+            card.mesh.rotation.z,
+          ),
         );
         // const isOriginRotationEquals = card.mesh.rotation.equals(
         //   card.originRotation
@@ -181,7 +246,7 @@ const Carousel = <T extends CardType>({
         if (isPositionEquals && isRotationEquals) {
           if (isScaleEquals && isOriginPositionEquals) {
             selectedMeshRef.current = null;
-
+            scroll.el.style.pointerEvents = "";
             navigate("/", { replace: true });
           }
 
@@ -209,7 +274,7 @@ const Carousel = <T extends CardType>({
 
   const animateToCenter = (
     index: number,
-    behavior: ScrollBehavior = "smooth"
+    behavior: ScrollBehavior = "smooth",
   ) => {
     const targetOffset = (index / cards.length) % 1;
     const realScrollPages = scroll.pages + 1;
@@ -239,7 +304,7 @@ const Carousel = <T extends CardType>({
     mesh: THREE.Mesh,
     cardID: number,
     originPosition: THREE.Vector3Tuple,
-    originRotation: THREE.Euler
+    originRotation: THREE.Euler,
   ) => {
     // selectedUUIDRef.current = mesh.uuid;
     selectedMeshRef.current = {
@@ -268,7 +333,7 @@ const Carousel = <T extends CardType>({
 
     const position: THREE.Vector3Tuple = [
       vertical ? 0 : circlePosition,
-      vertical ? -circlePosition : 0,
+      vertical ? -circlePosition : Y_OFFSET,
       Math.cos((index / count) * Math.PI * 2) * baseRadius,
     ];
 
@@ -276,11 +341,100 @@ const Carousel = <T extends CardType>({
   }, []);
 
   useFrame((state, delta) => {
+    if (!introRef.current.done) {
+      introRef.current.time += delta;
+      const t = introRef.current.time;
+
+      // ── Card opacity: 0 until spread is wide enough to not overlap ──
+      const spreadP =
+        t < DROP_DURATION + IMPACT_DURATION
+          ? 0
+          : Math.min(
+              1,
+              (t - DROP_DURATION - IMPACT_DURATION) / SPREAD_DURATION,
+            );
+      // Cards start fading in at 25% spread, fully visible at 70%
+      const cardOpacity = Math.min(1, Math.max(0, (spreadP - 0.25) / 0.45));
+
+      // ── Phase 1: DROP ──
+      if (t < DROP_DURATION) {
+        const p = easeInQuad(t / DROP_DURATION);
+        const y = START_Y * (1 - p);
+
+        meshesRef.current.forEach((mesh, i) => {
+          if (!mesh) return;
+          const off = clusterOffsets[i];
+          mesh.position.set(off.x, y + off.y, off.z);
+          mesh.scale.setScalar(CARD_INTRO_SCALE);
+          (mesh.material as THREE.MeshBasicMaterial).opacity = 0;
+        });
+
+        // ── Phase 2: IMPACT ──
+      } else if (t < DROP_DURATION + IMPACT_DURATION) {
+        const p = (t - DROP_DURATION) / IMPACT_DURATION;
+        const bounceY = -0.12 * Math.sin(p * Math.PI);
+
+        meshesRef.current.forEach((mesh, i) => {
+          if (!mesh) return;
+          const off = clusterOffsets[i];
+          const squeeze = 1 - 0.4 * Math.sin(p * Math.PI);
+          mesh.position.set(off.x, bounceY + off.y * squeeze, off.z);
+          mesh.scale.setScalar(CARD_INTRO_SCALE);
+          (mesh.material as THREE.MeshBasicMaterial).opacity = 0;
+        });
+
+        // ── Phase 3: SPREAD ──
+      } else {
+        const p = Math.min(
+          1,
+          (t - DROP_DURATION - IMPACT_DURATION) / SPREAD_DURATION,
+        );
+        const r = easeOutBack(p) * baseRadius;
+
+        // Scale grows with the same easeOutBack curve as radius (slight overshoot → settle)
+        const cardScale =
+          CARD_INTRO_SCALE + (1 - CARD_INTRO_SCALE) * easeOutBack(p);
+
+        meshesRef.current.forEach((mesh, index) => {
+          if (!mesh) return;
+          const angle = (index / count) * Math.PI * 2;
+          const circlePos = Math.sin(angle) * r;
+          mesh.position.set(
+            vertical ? 0 : circlePos,
+            vertical ? -circlePos : Y_OFFSET,
+            Math.cos(angle) * r,
+          );
+          mesh.scale.setScalar(Math.max(CARD_INTRO_SCALE, cardScale));
+          (mesh.material as THREE.MeshBasicMaterial).opacity = cardOpacity;
+        });
+
+        if (p >= 1) {
+          // Restore opacity before handing control back
+          meshesRef.current.forEach((mesh) => {
+            if (!mesh) return;
+            (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
+          });
+          introRef.current.done = true;
+        }
+      }
+    }
+
     const card = selectedMeshRef.current;
+    if (card) animate(card, !!selectedId, [state, delta]);
 
-    if (!card) return;
-
-    animate(card, !!selectedId, [state, delta]);
+    // Sync glow position/scale to their card mesh each frame
+    glowMeshesRef.current.forEach((glow, i) => {
+      const cardMesh = meshesRef.current[i];
+      if (!glow || !cardMesh) return;
+      glow.position.copy(cardMesh.position);
+      glow.scale.copy(cardMesh.scale);
+      const isSelectedCard =
+        selectedMeshRef.current?.mesh === cardMesh &&
+        selectedMeshRef.current.animation;
+      (glow.material as THREE.MeshBasicMaterial).opacity = isSelectedCard
+        ? 0
+        : 0.5;
+    });
   });
 
   useEffect(() => {
@@ -288,6 +442,8 @@ const Carousel = <T extends CardType>({
       const index = cards.findIndex((card) => card.id === selectedId);
       const mesh = meshesRef.current[index];
       if (!mesh) return;
+
+      scroll.el.style.pointerEvents = "none";
 
       const originPosition = getCardPosition(index);
       const originRotation = getCardRotation(index);
@@ -307,34 +463,64 @@ const Carousel = <T extends CardType>({
     }
   }, [selectedMeshRef.current?.animation, selectedMeshRef.current]);
 
-  return cards.map((card, index) => {
-    const { id, imageUrl } = card;
+  return (
+    <>
+      {/* Soft glow halos — position synced to card meshes in useFrame */}
+      {cards.map((card, index) => {
+        const glowColor = GLOW_PALETTE[index % GLOW_PALETTE.length];
+        const position = getCardPosition(index);
+        const rotation = getCardRotation(index);
+        return (
+          <mesh
+            key={`glow-${card.id}`}
+            ref={(el) => (glowMeshesRef.current[index] = el)}
+            position={position}
+            rotation={rotation}
+          >
+            <planeGeometry args={[2.2, 3.0]} />
+            <meshBasicMaterial
+              map={glowTexture}
+              color={glowColor}
+              transparent
+              opacity={0.5}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        );
+      })}
 
-    const rotation = getCardRotation(index);
-    const position = getCardPosition(index);
+      {cards.map((card, index) => {
+        const { id, imageUrl } = card;
 
-    const isDefaultSelectedCard = defaultSelectedID === card.id;
+        const rotation = getCardRotation(index);
+        const position = getCardPosition(index);
 
-    const isSelected =
-      selectedMeshRef.current?.animation &&
-      selectedMeshRef.current.mesh.uuid === meshesRef.current[index]?.uuid;
+        const isDefaultSelectedCard = defaultSelectedID === card.id;
 
-    return (
-      <Card
-        key={id}
-        ref={(el) => (meshesRef.current[index] = el)}
-        url={imageUrl}
-        bent={isSelected || isDefaultSelectedCard ? 0 : -0.1}
-        zoom={isSelected || isDefaultSelectedCard ? 1 : 1.5}
-        position={position}
-        rotation={rotation}
-        onPointerOver={() => onCardPointerOver?.(card)}
-        onPointerOut={() => onCardPointerOut?.(card)}
-        onClick={handleClick(card, position, rotation)}
-        onClose={isSelected ? handleClose(card) : undefined}
-      />
-    );
-  });
+        const isSelected =
+          selectedMeshRef.current?.animation &&
+          selectedMeshRef.current.mesh.uuid === meshesRef.current[index]?.uuid;
+
+        return (
+          <Card
+            key={id}
+            ref={(el) => (meshesRef.current[index] = el)}
+            url={imageUrl}
+            bent={isSelected || isDefaultSelectedCard ? 0 : -0.1}
+            zoom={isSelected || isDefaultSelectedCard ? 1 : 1.5}
+            position={position}
+            rotation={rotation}
+            onPointerOver={() => onCardPointerOver?.(card)}
+            onPointerOut={() => onCardPointerOut?.(card)}
+            onClick={handleClick(card, position, rotation)}
+            onClose={isSelected ? handleClose(card) : undefined}
+          />
+        );
+      })}
+
+    </>
+  );
 };
 
 export default Carousel;

@@ -6,14 +6,20 @@ import Banner from "../../3D/components/Banner";
 
 import cards from "../../constants/cards";
 
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+
+// Fixed tilt — same angle for intro ripples and card carousel (~14°)
+const X_TILT = 0.25;
 
 const Index = () => {
   const location = useLocation();
   const selectedId = new URLSearchParams(location.search).get("id");
 
   const [isSelected, setIsSelected] = useState(false);
+  useEffect(() => {
+    document.body.style.pointerEvents = "";
+  }, []);
 
   useLayoutEffect(() => {
     if (selectedId) {
@@ -29,7 +35,7 @@ const Index = () => {
         <Rig
           animation={!selectedId}
           scrollHintVisible
-          rotation={[0, 0, isSelected ? 0 : 0.15]}
+          rotation={[isSelected ? 0 : X_TILT, 0, isSelected ? 0 : 0.15]}
         >
           <Carousel
             cards={cards}
